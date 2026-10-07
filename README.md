@@ -109,6 +109,48 @@ curl http://localhost:8080/api/health
 이후 기능 코드는 `domain/기능명` 아래의 `controller`, `service`, `repository`, `entity`,
 `dto`로 나눕니다. 공통 초기 설정에는 도메인별 Entity나 인증·배포 구현을 포함하지 않습니다.
 
+## 배포
+
+앱·Nginx 이미지를 Docker Hub에 올리고, SSH로 EC2의 Compose를 갱신합니다.
+PR에서는 테스트·이미지 빌드만 실행하고 `main` push 또는 수동 실행에서 배포합니다.
+Docker Hub 저장소는 `wannys26/plabfootball-backend`, `wannys26/plabfootball-nginx`입니다.
+
+```bash
+./gradlew clean test bootJar
+docker build --platform linux/amd64 -t wannys26/plabfootball-backend:manual .
+docker build --platform linux/amd64 -f Dockerfile-nginx -t wannys26/plabfootball-nginx:manual .
+```
+
+최초 수동 배포에서는 위 두 이미지를 Docker Hub에 로그인해 업로드하고 `.env`의 `manual` 태그를 사용합니다.
+배포 이미지는 commit SHA 태그로 발행하고 digest로 고정합니다.
+
+GitHub Actions Secrets에 `DOCKER_TOKEN`, `EC2_HOST`, `EC2_SSH_KEY`, `EC2_FINGERPRINT`를 등록합니다.
+토큰은 Read & Write 권한을 사용합니다. SSH 호스트 지문은 이미 신뢰한 EC2 호스트 키에서 확인합니다.
+워크플로의 수동 실행은 파일이 기본 브랜치에 반영된 뒤 가능합니다.
+
+EC2의 `/home/ubuntu/app`에 `docker-compose.yml`과 `.env`를 준비합니다.
+`.env.example`을 복사해 실제 이미지 주소와 배포 DB 암호를 입력하고 `chmod 600 .env`를 실행합니다.
+암호에 `$`가 있으면 작은따옴표로 감싸고, 작은따옴표 자체는 `\'`로 이스케이프합니다.
+로컬 개발은 로컬 DB 환경변수를, EC2는 `.env`의 RDS 연결값을 사용합니다.
+
+Nginx를 실행하기 전에 EC2에서 인증서를 발급합니다. 이메일 주소는 실제 값으로 바꿉니다.
+
+```bash
+sudo docker run --rm -p 80:80 -v /etc/letsencrypt:/etc/letsencrypt \
+  certbot/certbot@sha256:f70ad0adbb7e117f0fe42a63c553f28ea451edabc0148757b6efcd9735acaa20 \
+  certonly --standalone -d 52.79.241.143.nip.io --email 본인이메일 \
+  --agree-tos --non-interactive
+```
+
+서버에서 `sudo docker compose up -d --wait`로 실행한 뒤
+`https://52.79.241.143.nip.io/api/health` 응답과 실제 RDS 조회를 확인합니다.
+Docker Hub 저장소가 비공개이면 EC2에서 먼저 `sudo docker login -u wannys26`이 필요합니다.
+인증서 갱신은 Certbot 컨테이너를 `--webroot -w /var/www/certbot`으로 실행하고 Nginx를 reload합니다.
+갱신 주기는 EC2에서 cron으로 별도 등록합니다. EC2 IP 변경 시 Nginx 도메인과 인증서도 변경합니다.
+
+배포 실패 시 `.env.previous`의 이미지 주소로 복구합니다. 이전 이미지를 미리 지우지 않습니다.
+최초 배포에는 이전 정상 이미지가 없으며, 이미지 복구가 DB 스키마까지 되돌리지는 않습니다.
+
 ## 공통 응답 및 예외
 
 성공 응답은 `ApiResponse.onSuccess(result)`를 사용합니다.

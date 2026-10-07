@@ -1,0 +1,99 @@
+name: PlabFootball CI/CD
+
+on:
+  pull_request:
+    branches: [develop, main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  WEB_IMAGE: wannys26/plabfootball-backend
+  NGINX_IMAGE: wannys26/plabfootball-nginx
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    outputs:
+      web_image: ${{ env.WEB_IMAGE }}@${{ steps.web.outputs.digest }}
+      nginx_image: ${{ env.NGINX_IMAGE }}@${{ steps.nginx.outputs.digest }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+      - run: ./gradlew clean test bootJar
+      - if: github.event_name != 'pull_request'
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f
+        with:
+          username: wannys26
+          password: ${{ secrets.DOCKER_TOKEN }}
+      - id: web
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc
+        with:
+          context: .
+          platforms: linux/amd64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ env.WEB_IMAGE }}:${{ github.sha }}
+      - id: nginx
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc
+        with:
+          context: .
+          file: Dockerfile-nginx
+          platforms: linux/amd64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ env.NGINX_IMAGE }}:${{ github.sha }}
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: build-and-push
+    concurrency:
+      group: production-deployment
+      cancel-in-progress: false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: production
+    env:
+      WEB_IMAGE: ${{ needs.build-and-push.outputs.web_image }}
+      NGINX_IMAGE: ${{ needs.build-and-push.outputs.nginx_image }}
+    steps:
+      - env:
+          EC2_FINGERPRINT: ${{ secrets.EC2_FINGERPRINT }}
+        run: test -n "$EC2_FINGERPRINT"
+      - uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          fingerprint: ${{ secrets.EC2_FINGERPRINT }}
+          envs: WEB_IMAGE,NGINX_IMAGE
+          script: |
+            set -euo pipefail
+            cd /home/ubuntu/app
+            test -f .env
+            grep -q '^WEB_IMAGE=' .env
+            grep -q '^NGINX_IMAGE=' .env
+            cp .env .env.previous
+            chmod 600 .env .env.previous
+            sed -i "s|^WEB_IMAGE=.*|WEB_IMAGE=$WEB_IMAGE|; s|^NGINX_IMAGE=.*|NGINX_IMAGE=$NGINX_IMAGE|" .env
+            unset WEB_IMAGE NGINX_IMAGE
+            if ! sudo docker compose config --quiet \
+              || ! sudo docker compose pull \
+              || ! sudo docker compose up -d --wait --wait-timeout 180 \
+              || ! curl -fsS --retry 5 --retry-all-errors --retry-delay 3 --max-time 20 \
+                https://52.79.241.143.nip.io/api/health \
+                | grep -Eq '"status"[[:space:]]*:[[:space:]]*"ok"'; then
+              cp .env.previous .env
+              sudo docker compose up -d --wait --wait-timeout 180
+              exit 1
+            fi
