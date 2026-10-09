@@ -116,3 +116,29 @@ jobs:
               sudo docker compose up -d --remove-orphans --wait --wait-timeout 180
               exit 1
             fi
+            if current_image_refs=$(sudo docker compose config --images 2>/dev/null) \
+              && previous_image_refs=$(sudo docker compose --env-file .env.previous -f docker-compose.yml.previous config --images 2>/dev/null) \
+              && [ -n "$current_image_refs" ] && [ -n "$previous_image_refs" ] \
+              && retained_image_ids=$(printf '%s\n' "$current_image_refs" "$previous_image_refs" | xargs -r sudo docker image inspect --format '{{.Id}}' 2>/dev/null) \
+              && candidate_images=$(sudo docker image ls --digests --no-trunc --format '{{.Repository}} {{.Tag}} {{.Digest}}'); then
+              while read -r repository tag digest; do
+                case "$repository" in
+                  wannys26/plabfootball-backend|wannys26/plabfootball-nginx) ;;
+                  *) continue ;;
+                esac
+                if [ "$tag" != '<none>' ]; then
+                  candidate_ref="$repository:$tag"
+                elif [ "$digest" != '<none>' ]; then
+                  candidate_ref="$repository@$digest"
+                else
+                  continue
+                fi
+                image_id=$(sudo docker image inspect --format '{{.Id}}' "$candidate_ref" 2>/dev/null) || continue
+                if grep -Fxq "$image_id" <<< "$retained_image_ids"; then
+                  continue
+                fi
+                sudo docker image rm --no-prune "$candidate_ref" || echo "이미지 정리 실패: $candidate_ref"
+              done <<< "$candidate_images"
+            else
+              echo '이미지 정리를 건너뜁니다: 보존 대상 또는 이미지 목록을 확인할 수 없습니다.'
+            fi
