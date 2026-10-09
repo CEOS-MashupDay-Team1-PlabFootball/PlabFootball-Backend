@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [develop, main]
   push:
-    branches: [main]
+    branches: [develop, main]
   workflow_dispatch:
 
 permissions:
@@ -20,6 +20,7 @@ env:
 
 jobs:
   build-and-push:
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     outputs:
@@ -55,7 +56,7 @@ jobs:
           tags: ${{ env.NGINX_IMAGE }}:${{ github.sha }}
 
   deploy:
-    if: github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
     needs: build-and-push
     concurrency:
       group: production-deployment
@@ -67,9 +68,18 @@ jobs:
       WEB_IMAGE: ${{ needs.build-and-push.outputs.web_image }}
       NGINX_IMAGE: ${{ needs.build-and-push.outputs.nginx_image }}
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - env:
           EC2_FINGERPRINT: ${{ secrets.EC2_FINGERPRINT }}
         run: test -n "$EC2_FINGERPRINT"
+      - uses: appleboy/scp-action@ff85246acaad7bdce478db94a363cd2bf7c90345
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          fingerprint: ${{ secrets.EC2_FINGERPRINT }}
+          source: docker-compose.yml
+          target: /home/ubuntu/app/.incoming-${{ github.run_id }}-${{ github.run_attempt }}
       - uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -80,20 +90,29 @@ jobs:
           script: |
             set -euo pipefail
             cd /home/ubuntu/app
+            incoming=.incoming-${{ github.run_id }}-${{ github.run_attempt }}
+            trap 'rm -rf "$incoming"' EXIT
             test -f .env
+            test -f docker-compose.yml
+            test -f "$incoming/docker-compose.yml"
             grep -q '^WEB_IMAGE=' .env
             grep -q '^NGINX_IMAGE=' .env
             cp .env .env.previous
+            cp docker-compose.yml docker-compose.yml.previous
             chmod 600 .env .env.previous
-            sed -i "s|^WEB_IMAGE=.*|WEB_IMAGE=$WEB_IMAGE|; s|^NGINX_IMAGE=.*|NGINX_IMAGE=$NGINX_IMAGE|" .env
+            new_web_image=$WEB_IMAGE
+            new_nginx_image=$NGINX_IMAGE
             unset WEB_IMAGE NGINX_IMAGE
-            if ! sudo docker compose config --quiet \
+            if ! cp "$incoming/docker-compose.yml" docker-compose.yml \
+              || ! sed -i "s|^WEB_IMAGE=.*|WEB_IMAGE=$new_web_image|; s|^NGINX_IMAGE=.*|NGINX_IMAGE=$new_nginx_image|" .env \
+              || ! sudo docker compose config --quiet \
               || ! sudo docker compose pull \
-              || ! sudo docker compose up -d --wait --wait-timeout 180 \
+              || ! sudo docker compose up -d --remove-orphans --wait --wait-timeout 180 \
               || ! curl -fsS --retry 5 --retry-all-errors --retry-delay 3 --max-time 20 \
                 https://52.79.241.143.nip.io/api/health \
                 | grep -Eq '"status"[[:space:]]*:[[:space:]]*"ok"'; then
               cp .env.previous .env
-              sudo docker compose up -d --wait --wait-timeout 180
+              cp docker-compose.yml.previous docker-compose.yml
+              sudo docker compose up -d --remove-orphans --wait --wait-timeout 180
               exit 1
             fi

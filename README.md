@@ -112,7 +112,8 @@ curl http://localhost:8080/api/health
 ## 배포
 
 앱·Nginx 이미지를 Docker Hub에 올리고, SSH로 EC2의 Compose를 갱신합니다.
-PR에서는 테스트·이미지 빌드만 실행하고 `main` push 또는 수동 실행에서 배포합니다.
+PR에서는 테스트·이미지 빌드만 실행하고 `main`·`develop` push 또는 두 브랜치의 수동 실행에서 배포합니다.
+두 브랜치는 같은 EC2를 사용하므로 마지막으로 배포한 버전이 운영됩니다. 다른 브랜치의 수동 실행은 빌드·배포하지 않습니다.
 Docker Hub 저장소는 `wannys26/plabfootball-backend`, `wannys26/plabfootball-nginx`입니다.
 
 ```bash
@@ -133,6 +134,10 @@ EC2의 `/home/ubuntu/app`에 `docker-compose.yml`과 `.env`를 준비합니다.
 암호에 `$`가 있으면 작은따옴표로 감싸고, 작은따옴표 자체는 `\'`로 이스케이프합니다.
 로컬 개발은 로컬 DB 환경변수를, EC2는 `.env`의 RDS 연결값을 사용합니다.
 
+자동 배포에서는 배포할 커밋의 `docker-compose.yml`을 임시 경로에 전송합니다.
+서버의 기존 Compose와 `.env`를 각각 `docker-compose.yml.previous`, `.env.previous`로 백업한 뒤 새 설정과 이미지 주소를 적용합니다.
+DB 비밀번호 등 서버의 `.env` 값은 유지하고 이미지 주소 두 개만 갱신합니다.
+
 Nginx를 실행하기 전에 EC2에서 인증서를 발급합니다. 이메일 주소는 실제 값으로 바꿉니다.
 
 ```bash
@@ -148,7 +153,7 @@ Docker Hub 저장소가 비공개이면 EC2에서 먼저 `sudo docker login -u w
 인증서 갱신은 Certbot 컨테이너를 `--webroot -w /var/www/certbot`으로 실행하고 Nginx를 reload합니다.
 갱신 주기는 EC2에서 cron으로 별도 등록합니다. EC2 IP 변경 시 Nginx 도메인과 인증서도 변경합니다.
 
-배포 실패 시 `.env.previous`의 이미지 주소로 복구합니다. 이전 이미지를 미리 지우지 않습니다.
+설정 검사·이미지 다운로드·기동·HTTPS 확인에 실패하면 이전 Compose와 `.env`를 함께 복구합니다. 이전 이미지를 미리 지우지 않습니다.
 최초 배포에는 이전 정상 이미지가 없으며, 이미지 복구가 DB 스키마까지 되돌리지는 않습니다.
 
 ## 공통 응답 및 예외
