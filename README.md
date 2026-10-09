@@ -97,7 +97,7 @@ curl http://localhost:8080/api/health
 
 ## 패키지 구성
 
-- `health`: 서버 실행 상태 확인
+- `global/health`: 서버 실행 상태 확인
 - `global/config`: JPA Auditing 및 Swagger 설정
 - `global/apiPayload`: 공통 응답
 - `global/apiPayload/code`: 성공·오류 코드 인터페이스 및 Reason DTO

@@ -1,4 +1,4 @@
-package com.ceos.plabfootball.health;
+package com.ceos.plabfootball.global.health;
 
 import lombok.Builder;
 import org.springframework.web.bind.annotation.GetMapping;
