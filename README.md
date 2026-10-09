@@ -97,7 +97,7 @@ curl http://localhost:8080/api/health
 
 ## 패키지 구성
 
-- `health`: 서버 실행 상태 확인
+- `global/health`: 서버 실행 상태 확인
 - `global/config`: JPA Auditing 및 Swagger 설정
 - `global/apiPayload`: 공통 응답
 - `global/apiPayload/code`: 성공·오류 코드 인터페이스 및 Reason DTO
@@ -108,6 +108,92 @@ curl http://localhost:8080/api/health
 
 이후 기능 코드는 `domain/기능명` 아래의 `controller`, `service`, `repository`, `entity`,
 `dto`로 나눕니다. 공통 초기 설정에는 도메인별 Entity나 인증·배포 구현을 포함하지 않습니다.
+
+## 배포
+
+앱·Nginx 이미지를 Docker Hub에 올리고, SSH로 EC2의 Compose를 갱신합니다.
+PR에서는 테스트·이미지 빌드만 실행하고 `main`·`develop` push 또는 두 브랜치의 수동 실행에서 배포합니다.
+두 브랜치는 같은 EC2를 사용하므로 마지막으로 배포한 버전이 운영됩니다. 다른 브랜치의 수동 실행은 빌드·배포하지 않습니다.
+Docker Hub 저장소는 `wannys26/plabfootball-backend`, `wannys26/plabfootball-nginx`입니다.
+
+```bash
+./gradlew clean test bootJar
+docker build --platform linux/amd64 -t wannys26/plabfootball-backend:manual .
+docker build --platform linux/amd64 -f Dockerfile-nginx -t wannys26/plabfootball-nginx:manual .
+```
+
+최초 수동 배포에서는 위 두 이미지를 Docker Hub에 로그인해 업로드하고 `.env`의 `manual` 태그를 사용합니다.
+배포 이미지는 commit SHA 태그로 발행하고 digest로 고정합니다.
+
+GitHub Actions Secrets에 `DOCKER_TOKEN`, `EC2_HOST`, `EC2_SSH_KEY`, `EC2_FINGERPRINT`를 등록합니다.
+토큰은 Read & Write 권한을 사용합니다. SSH 호스트 지문은 이미 신뢰한 EC2 호스트 키에서 확인합니다.
+워크플로의 수동 실행은 파일이 기본 브랜치에 반영된 뒤 가능합니다.
+
+EC2의 `/home/ubuntu/app`에 `docker-compose.yml`과 `.env`를 준비합니다.
+`.env.example`을 복사해 실제 이미지 주소와 배포 DB 암호를 입력하고 `chmod 600 .env`를 실행합니다.
+암호에 `$`가 있으면 작은따옴표로 감싸고, 작은따옴표 자체는 `\'`로 이스케이프합니다.
+로컬 개발은 로컬 DB 환경변수를, EC2는 `.env`의 RDS 연결값을 사용합니다.
+
+자동 배포에서는 배포할 커밋의 `docker-compose.yml`을 임시 경로에 전송합니다.
+서버의 기존 Compose와 `.env`를 각각 `docker-compose.yml.previous`, `.env.previous`로 백업한 뒤 새 설정과 이미지 주소를 적용합니다.
+DB 비밀번호 등 서버의 `.env` 값은 유지하고 이미지 주소 두 개만 갱신합니다.
+
+Nginx를 실행하기 전에 EC2에서 인증서를 발급합니다. 이메일 주소는 실제 값으로 바꿉니다.
+
+```bash
+sudo docker run --rm -p 80:80 -v /etc/letsencrypt:/etc/letsencrypt \
+  certbot/certbot@sha256:f70ad0adbb7e117f0fe42a63c553f28ea451edabc0148757b6efcd9735acaa20 \
+  certonly --standalone -d 52.78.96.225.nip.io --email 본인이메일 \
+  --agree-tos --non-interactive
+```
+
+서버에서 `sudo docker compose up -d --wait`로 실행한 뒤
+`https://52.78.96.225.nip.io/api/health` 응답과 실제 RDS 조회를 확인합니다.
+Docker Hub 저장소가 비공개이면 EC2에서 먼저 `sudo docker login -u wannys26`이 필요합니다.
+최초 발급은 Nginx가 인증서 없이 시작할 수 없으므로 `--standalone`을 사용합니다.
+갱신 시점에는 Nginx가 80 포트를 점유하므로 `--webroot`를 사용해야 합니다.
+Nginx는 `/.well-known/acme-challenge/`를 `/var/www/certbot`에서 제공하며, 이 경로는 nginx 컨테이너에 읽기 전용으로 마운트됩니다.
+
+EC2에서 `/etc/cron.d/certbot-renew`를 만듭니다. 매일 03:17에 갱신을 시도하며, renew 명령이 오류 없이 끝나면 갱신 여부와 관계없이 Nginx를 reload합니다.
+
+```bash
+sudo tee /etc/cron.d/certbot-renew > /dev/null <<'CRON'
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+17 3 * * * root { cd /home/ubuntu/app && docker run --rm -v /etc/letsencrypt:/etc/letsencrypt -v /var/www/certbot:/var/www/certbot certbot/certbot@sha256:f70ad0adbb7e117f0fe42a63c553f28ea451edabc0148757b6efcd9735acaa20 renew --webroot -w /var/www/certbot --quiet && docker compose exec -T nginx nginx -s reload; } >> /var/log/certbot-renew.log 2>&1
+CRON
+```
+
+파일 권한은 `sudo chmod 644 /etc/cron.d/certbot-renew`로 지정합니다.
+
+Nginx가 실행 중인 상태에서 `--dry-run`으로 갱신 절차를 검증합니다. reload는 하지 않습니다.
+
+```bash
+sudo docker run --rm -v /etc/letsencrypt:/etc/letsencrypt -v /var/www/certbot:/var/www/certbot \
+  certbot/certbot@sha256:f70ad0adbb7e117f0fe42a63c553f28ea451edabc0148757b6efcd9735acaa20 \
+  renew --webroot -w /var/www/certbot --dry-run
+```
+
+dry-run이 성공하면 HTTP-01 경로(80 포트 → Nginx → webroot)가 정상이라는 뜻입니다.
+
+- Certbot은 만료 30일 이내일 때만 갱신하므로 매일 실행해도 대부분 아무 작업도 하지 않습니다.
+- `nginx -s reload`는 graceful reload이므로 연결이 끊기지 않습니다.
+- 결과는 `/var/log/certbot-renew.log`에서 확인합니다.
+- Let's Encrypt는 더 이상 만료 알림 이메일을 보내지 않으므로 이 cron이 안전장치입니다.
+- EC2 IP가 바뀌면 Nginx 도메인, 배포 워크플로의 URL, 인증서, `EC2_HOST` Secret을 모두 변경합니다.
+  새 인증서를 발급한 뒤에는 이전 도메인의 인증서를 `certbot delete`로 삭제합니다.
+  이전 인증서가 남아 있으면 `renew`가 실패해 Nginx reload가 실행되지 않습니다.
+
+```bash
+sudo docker run --rm -v /etc/letsencrypt:/etc/letsencrypt certbot/certbot@sha256:f70ad0adbb7e117f0fe42a63c553f28ea451edabc0148757b6efcd9735acaa20 delete --cert-name <이전도메인> --non-interactive
+```
+
+설정 검사·이미지 다운로드·기동·HTTPS 확인에 실패하면 이전 Compose와 `.env`를 함께 복구합니다. 이전 이미지를 미리 지우지 않습니다.
+최초 배포에는 이전 정상 이미지가 없으며, 이미지 복구가 DB 스키마까지 되돌리지는 않습니다.
+
+배포 성공 후 현재·직전 Compose가 사용하는 이미지 ID를 보존하고, 두 Docker Hub 저장소의 나머지 로컬 이미지 참조만 정리합니다.
+태그와 digest가 달라도 같은 이미지 ID면 보존합니다. 다른 저장소와 소속을 알 수 없는 이미지는 정리하지 않으며 강제 삭제도 사용하지 않습니다.
+보존 대상 확인이나 정리가 실패하면 경고만 남기고 성공한 배포를 유지합니다.
 
 ## 공통 응답 및 예외
 
