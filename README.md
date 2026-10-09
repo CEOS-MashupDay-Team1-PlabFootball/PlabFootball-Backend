@@ -143,15 +143,50 @@ Nginx를 실행하기 전에 EC2에서 인증서를 발급합니다. 이메일 �
 ```bash
 sudo docker run --rm -p 80:80 -v /etc/letsencrypt:/etc/letsencrypt \
   certbot/certbot@sha256:f70ad0adbb7e117f0fe42a63c553f28ea451edabc0148757b6efcd9735acaa20 \
-  certonly --standalone -d 52.79.241.143.nip.io --email 본인이메일 \
+  certonly --standalone -d 52.78.96.225.nip.io --email 본인이메일 \
   --agree-tos --non-interactive
 ```
 
 서버에서 `sudo docker compose up -d --wait`로 실행한 뒤
-`https://52.79.241.143.nip.io/api/health` 응답과 실제 RDS 조회를 확인합니다.
+`https://52.78.96.225.nip.io/api/health` 응답과 실제 RDS 조회를 확인합니다.
 Docker Hub 저장소가 비공개이면 EC2에서 먼저 `sudo docker login -u wannys26`이 필요합니다.
-인증서 갱신은 Certbot 컨테이너를 `--webroot -w /var/www/certbot`으로 실행하고 Nginx를 reload합니다.
-갱신 주기는 EC2에서 cron으로 별도 등록합니다. EC2 IP 변경 시 Nginx 도메인과 인증서도 변경합니다.
+최초 발급은 Nginx가 인증서 없이 시작할 수 없으므로 `--standalone`을 사용합니다.
+갱신 시점에는 Nginx가 80 포트를 점유하므로 `--webroot`를 사용해야 합니다.
+Nginx는 `/.well-known/acme-challenge/`를 `/var/www/certbot`에서 제공하며, 이 경로는 nginx 컨테이너에 읽기 전용으로 마운트됩니다.
+
+EC2에서 `/etc/cron.d/certbot-renew`를 만듭니다. 매일 03:17에 갱신을 시도하며, renew 명령이 오류 없이 끝나면 갱신 여부와 관계없이 Nginx를 reload합니다.
+
+```bash
+sudo tee /etc/cron.d/certbot-renew > /dev/null <<'CRON'
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+17 3 * * * root { cd /home/ubuntu/app && docker run --rm -v /etc/letsencrypt:/etc/letsencrypt -v /var/www/certbot:/var/www/certbot certbot/certbot@sha256:f70ad0adbb7e117f0fe42a63c553f28ea451edabc0148757b6efcd9735acaa20 renew --webroot -w /var/www/certbot --quiet && docker compose exec -T nginx nginx -s reload; } >> /var/log/certbot-renew.log 2>&1
+CRON
+```
+
+파일 권한은 `sudo chmod 644 /etc/cron.d/certbot-renew`로 지정합니다.
+
+Nginx가 실행 중인 상태에서 `--dry-run`으로 갱신 절차를 검증합니다. reload는 하지 않습니다.
+
+```bash
+sudo docker run --rm -v /etc/letsencrypt:/etc/letsencrypt -v /var/www/certbot:/var/www/certbot \
+  certbot/certbot@sha256:f70ad0adbb7e117f0fe42a63c553f28ea451edabc0148757b6efcd9735acaa20 \
+  renew --webroot -w /var/www/certbot --dry-run
+```
+
+dry-run이 성공하면 HTTP-01 경로(80 포트 → Nginx → webroot)가 정상이라는 뜻입니다.
+
+- Certbot은 만료 30일 이내일 때만 갱신하므로 매일 실행해도 대부분 아무 작업도 하지 않습니다.
+- `nginx -s reload`는 graceful reload이므로 연결이 끊기지 않습니다.
+- 결과는 `/var/log/certbot-renew.log`에서 확인합니다.
+- Let's Encrypt는 더 이상 만료 알림 이메일을 보내지 않으므로 이 cron이 안전장치입니다.
+- EC2 IP가 바뀌면 Nginx 도메인, 배포 워크플로의 URL, 인증서, `EC2_HOST` Secret을 모두 변경합니다.
+  새 인증서를 발급한 뒤에는 이전 도메인의 인증서를 `certbot delete`로 삭제합니다.
+  이전 인증서가 남아 있으면 `renew`가 실패해 Nginx reload가 실행되지 않습니다.
+
+```bash
+sudo docker run --rm -v /etc/letsencrypt:/etc/letsencrypt certbot/certbot@sha256:f70ad0adbb7e117f0fe42a63c553f28ea451edabc0148757b6efcd9735acaa20 delete --cert-name <이전도메인> --non-interactive
+```
 
 설정 검사·이미지 다운로드·기동·HTTPS 확인에 실패하면 이전 Compose와 `.env`를 함께 복구합니다. 이전 이미지를 미리 지우지 않습니다.
 최초 배포에는 이전 정상 이미지가 없으며, 이미지 복구가 DB 스키마까지 되돌리지는 않습니다.

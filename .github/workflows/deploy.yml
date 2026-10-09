@@ -109,8 +109,8 @@ jobs:
               || ! sudo docker compose pull \
               || ! sudo docker compose up -d --remove-orphans --wait --wait-timeout 180 \
               || ! curl -fsS --retry 5 --retry-all-errors --retry-delay 3 --max-time 20 \
-                --resolve 52.79.241.143.nip.io:443:127.0.0.1 \
-                https://52.79.241.143.nip.io/api/health \
+                --resolve 52.78.96.225.nip.io:443:127.0.0.1 \
+                https://52.78.96.225.nip.io/api/health \
                 | grep -Eq '"status"[[:space:]]*:[[:space:]]*"ok"'; then
               cp .env.previous .env
               cp docker-compose.yml.previous docker-compose.yml
