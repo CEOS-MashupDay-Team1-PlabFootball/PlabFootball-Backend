@@ -1,0 +1,10 @@
+**
+!Dockerfile
+!Dockerfile-nginx
+!build/
+!build/libs/
+!build/libs/*.jar
+build/libs/*-plain.jar
+!nginx/
+!nginx/conf.d/
+!nginx/conf.d/nginx.conf

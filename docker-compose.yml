@@ -1,0 +1,43 @@
+services:
+  web:
+    image: ${WEB_IMAGE:?WEB_IMAGE is required}
+    restart: unless-stopped
+    environment:
+      DB_URL: ${DB_URL:?DB_URL is required}
+      DB_USERNAME: ${DB_USERNAME:?DB_USERNAME is required}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "5"
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: "1"
+      SERVER_FORWARD_HEADERS_STRATEGY: native
+      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=60.0
+    expose:
+      - "8080"
+    mem_limit: 640m
+    healthcheck:
+      test: [CMD, curl, -fsS, http://127.0.0.1:8080/api/health]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 60s
+    logging:
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  nginx:
+    image: ${NGINX_IMAGE:?NGINX_IMAGE is required}
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - /var/www/certbot:/var/www/certbot:ro
+    depends_on:
+      web:
+        condition: service_healthy
+    mem_limit: 64m
+    logging:
+      options:
+        max-size: 10m
+        max-file: "3"

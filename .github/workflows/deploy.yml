@@ -1,0 +1,145 @@
+name: PlabFootball CI/CD
+
+on:
+  pull_request:
+    branches: [develop, main]
+  push:
+    branches: [develop, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  WEB_IMAGE: wannys26/plabfootball-backend
+  NGINX_IMAGE: wannys26/plabfootball-nginx
+
+jobs:
+  build-and-push:
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    outputs:
+      web_image: ${{ env.WEB_IMAGE }}@${{ steps.web.outputs.digest }}
+      nginx_image: ${{ env.NGINX_IMAGE }}@${{ steps.nginx.outputs.digest }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+      - run: ./gradlew clean test bootJar
+      - if: github.event_name != 'pull_request'
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f
+        with:
+          username: wannys26
+          password: ${{ secrets.DOCKER_TOKEN }}
+      - id: web
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc
+        with:
+          context: .
+          platforms: linux/amd64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ env.WEB_IMAGE }}:${{ github.sha }}
+      - id: nginx
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc
+        with:
+          context: .
+          file: Dockerfile-nginx
+          platforms: linux/amd64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ env.NGINX_IMAGE }}:${{ github.sha }}
+
+  deploy:
+    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+    needs: build-and-push
+    concurrency:
+      group: production-deployment
+      cancel-in-progress: false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: production
+    env:
+      WEB_IMAGE: ${{ needs.build-and-push.outputs.web_image }}
+      NGINX_IMAGE: ${{ needs.build-and-push.outputs.nginx_image }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - env:
+          EC2_FINGERPRINT: ${{ secrets.EC2_FINGERPRINT }}
+        run: test -n "$EC2_FINGERPRINT"
+      - uses: appleboy/scp-action@ff85246acaad7bdce478db94a363cd2bf7c90345
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          fingerprint: ${{ secrets.EC2_FINGERPRINT }}
+          source: docker-compose.yml
+          target: /home/ubuntu/app/.incoming-${{ github.run_id }}-${{ github.run_attempt }}
+      - uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          fingerprint: ${{ secrets.EC2_FINGERPRINT }}
+          envs: WEB_IMAGE,NGINX_IMAGE
+          script: |
+            set -euo pipefail
+            cd /home/ubuntu/app
+            incoming=.incoming-${{ github.run_id }}-${{ github.run_attempt }}
+            trap 'rm -rf "$incoming"' EXIT
+            test -f .env
+            test -f docker-compose.yml
+            test -f "$incoming/docker-compose.yml"
+            grep -q '^WEB_IMAGE=' .env
+            grep -q '^NGINX_IMAGE=' .env
+            cp .env .env.previous
+            cp docker-compose.yml docker-compose.yml.previous
+            chmod 600 .env .env.previous
+            new_web_image=$WEB_IMAGE
+            new_nginx_image=$NGINX_IMAGE
+            unset WEB_IMAGE NGINX_IMAGE
+            if ! cp "$incoming/docker-compose.yml" docker-compose.yml \
+              || ! sed -i "s|^WEB_IMAGE=.*|WEB_IMAGE=$new_web_image|; s|^NGINX_IMAGE=.*|NGINX_IMAGE=$new_nginx_image|" .env \
+              || ! sudo docker compose config --quiet \
+              || ! sudo docker compose pull \
+              || ! sudo docker compose up -d --remove-orphans --wait --wait-timeout 180 \
+              || ! curl -fsS --retry 5 --retry-all-errors --retry-delay 3 --max-time 20 \
+                --resolve 52.78.96.225.nip.io:443:127.0.0.1 \
+                https://52.78.96.225.nip.io/api/health \
+                | grep -Eq '"status"[[:space:]]*:[[:space:]]*"ok"'; then
+              cp .env.previous .env
+              cp docker-compose.yml.previous docker-compose.yml
+              sudo docker compose up -d --remove-orphans --wait --wait-timeout 180
+              exit 1
+            fi
+            if current_image_refs=$(sudo docker compose config --images 2>/dev/null) \
+              && previous_image_refs=$(sudo docker compose --env-file .env.previous -f docker-compose.yml.previous config --images 2>/dev/null) \
+              && [ -n "$current_image_refs" ] && [ -n "$previous_image_refs" ] \
+              && retained_image_ids=$(printf '%s\n' "$current_image_refs" "$previous_image_refs" | xargs -r sudo docker image inspect --format '{{.Id}}' 2>/dev/null) \
+              && candidate_images=$(sudo docker image ls --digests --no-trunc --format '{{.Repository}} {{.Tag}} {{.Digest}}'); then
+              while read -r repository tag digest; do
+                case "$repository" in
+                  wannys26/plabfootball-backend|wannys26/plabfootball-nginx) ;;
+                  *) continue ;;
+                esac
+                if [ "$tag" != '<none>' ]; then
+                  candidate_ref="$repository:$tag"
+                elif [ "$digest" != '<none>' ]; then
+                  candidate_ref="$repository@$digest"
+                else
+                  continue
+                fi
+                image_id=$(sudo docker image inspect --format '{{.Id}}' "$candidate_ref" 2>/dev/null) || continue
+                if grep -Fxq "$image_id" <<< "$retained_image_ids"; then
+                  continue
+                fi
+                sudo docker image rm --no-prune "$candidate_ref" || echo "이미지 정리 실패: $candidate_ref"
+              done <<< "$candidate_images"
+            else
+              echo '이미지 정리를 건너뜁니다: 보존 대상 또는 이미지 목록을 확인할 수 없습니다.'
+            fi
