@@ -6,6 +6,7 @@ import com.ceos.plabfootball.global.entity.BaseEntity;
 
 import jakarta.persistence.*;
 import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -32,4 +33,10 @@ public class FavoriteArea extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "areas_id", nullable = false)
     private Area area;
+
+    @Builder
+    private FavoriteArea(User user, Area area) {
+        this.user = user;
+        this.area = area;
+    }
 }

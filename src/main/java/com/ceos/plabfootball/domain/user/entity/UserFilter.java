@@ -3,6 +3,7 @@ package com.ceos.plabfootball.domain.user.entity;
 import com.ceos.plabfootball.global.entity.BaseEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -29,4 +30,18 @@ public class UserFilter extends BaseEntity {
 
     @Column(name = "is_default", nullable = false)
     private boolean isDefault;
+
+
+    @Builder
+    private UserFilter(
+            User user,
+            String title,
+            String filterSetting,
+            boolean isDefault
+    ) {
+        this.user = user;
+        this.title = title;
+        this.filterSetting = filterSetting;
+        this.isDefault = isDefault;
+    }
 }

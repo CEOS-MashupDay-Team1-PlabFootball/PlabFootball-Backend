@@ -6,6 +6,7 @@ import com.ceos.plabfootball.global.entity.BaseEntity;
 
 import jakarta.persistence.*;
 import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -32,4 +33,10 @@ public class FavoriteMatch extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "matches_id", nullable = false)
     private Match match;
+
+    @Builder
+    private FavoriteMatch(User user, Match match) {
+        this.user = user;
+        this.match = match;
+    }
 }
