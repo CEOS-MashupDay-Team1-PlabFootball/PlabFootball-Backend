@@ -20,7 +20,7 @@ public class UserFilter extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    private User user_id;
 
     @Column(name = "title", nullable = false, length = 20)
     private String title;
@@ -34,12 +34,12 @@ public class UserFilter extends BaseEntity {
 
     @Builder
     private UserFilter(
-            User user,
+            User user_id,
             String title,
             String filterSetting,
             boolean isDefault
     ) {
-        this.user = user;
+        this.user_id = user_id;
         this.title = title;
         this.filterSetting = filterSetting;
         this.isDefault = isDefault;

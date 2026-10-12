@@ -27,16 +27,16 @@ public class FavoriteArea extends BaseEntity {
     // 찜한 사용자
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    private User user_id;
 
     // 찜한 지역
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "areas_id", nullable = false)
-    private Area area;
+    private Area area_id;
 
     @Builder
-    private FavoriteArea(User user, Area area) {
-        this.user = user;
-        this.area = area;
+    private FavoriteArea(User user_id, Area area_id) {
+        this.user_id = user_id;
+        this.area_id = area_id;
     }
 }

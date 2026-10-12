@@ -21,7 +21,7 @@ public class Area {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "cities_id", nullable = false)
-    private City city;
+    private City city_id;
 
     @Column(name = "name", nullable = false, length = 255)
     private String name;

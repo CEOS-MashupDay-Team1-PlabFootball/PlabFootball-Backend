@@ -29,7 +29,7 @@ public class Match extends BaseEntity {
     // 구장
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "stadium_id", nullable = false)
-    private Stadium stadium;
+    private Stadium stadium_id;
 
     // 매치 시작 및 종료 시간
     @Column(name = "start_time", nullable = false)
@@ -95,7 +95,7 @@ public class Match extends BaseEntity {
 
     @Builder
     private Match(
-            Stadium stadium,
+            Stadium stadium_id,
             LocalDateTime startTime,
             LocalDateTime endTime,
             Integer price,
@@ -125,7 +125,7 @@ public class Match extends BaseEntity {
             );
         }
 
-        this.stadium = stadium;
+        this.stadium_id = stadium_id;
         this.startTime = startTime;
         this.endTime = endTime;
         this.price = price;

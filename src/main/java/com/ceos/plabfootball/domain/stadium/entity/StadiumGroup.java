@@ -19,5 +19,5 @@ public class StadiumGroup {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "areas_id", nullable = false)
-    private Area area;
+    private Area area_id;
 }

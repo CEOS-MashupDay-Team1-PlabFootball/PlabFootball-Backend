@@ -22,7 +22,7 @@ public class Stadium extends BaseEntity {
     // 구장 그룹
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "stadium_groups_id", nullable = false)
-    private StadiumGroup stadiumGroup;
+    private StadiumGroup stadiumGroup_id;
 
     // 구장 이름
     @Column(name = "name", nullable = false, length = 150)

@@ -27,16 +27,16 @@ public class FavoriteMatch extends BaseEntity {
     // 찜한 사용자
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    private User user_id;
 
     // 찜한 매치
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "matches_id", nullable = false)
-    private Match match;
+    private Match match_id;
 
     @Builder
-    private FavoriteMatch(User user, Match match) {
-        this.user = user;
-        this.match = match;
+    private FavoriteMatch(User user_id, Match match_id) {
+        this.user_id = user_id;
+        this.match_id = match_id;
     }
 }
