@@ -6,6 +6,7 @@ import com.ceos.plabfootball.global.entity.BaseEntity;
 
 import jakarta.persistence.*;
 import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -91,4 +92,61 @@ public class Match extends BaseEntity {
     // 스크린 제공 여부
     @Column(name = "has_screen")
     private Boolean hasScreen;
+
+    @Builder
+    private Match(
+            Stadium stadium,
+            LocalDateTime startTime,
+            LocalDateTime endTime,
+            Integer price,
+            MatchType matchType,
+            GenderType genderType,
+            LevelType levelType,
+            Integer minPlayers,
+            Integer maxPlayers,
+            Integer parkingCapacity,
+            Boolean isEarlybird,
+            Boolean hasAiReport,
+            Boolean hasScreen
+    ) {
+        // 최대최소 인원 수
+        if (minPlayers == null || maxPlayers == null
+                || minPlayers <= 0 || minPlayers > maxPlayers) {
+            throw new IllegalArgumentException(
+                    "최소 인원은 최대 인원보다 클 수 없습니다."
+            );
+        }
+
+        // 매치 시간
+        if (startTime == null || endTime == null
+                || !endTime.isAfter(startTime)) {
+            throw new IllegalArgumentException(
+                    "매치 종료 시간은 시작 시간보다 나중이어야 합니다."
+            );
+        }
+
+        this.stadium = stadium;
+        this.startTime = startTime;
+        this.endTime = endTime;
+        this.price = price;
+
+        this.statusType = MatchStatus.OPEN;
+
+        this.matchType = matchType;
+        this.genderType = genderType;
+        this.levelType = levelType;
+
+        this.minPlayers = minPlayers;
+        this.maxPlayers = maxPlayers;
+        this.currentPlayers = 0; // 초기값 0으로 설정
+
+        this.parkingCapacity = parkingCapacity;
+        this.reservedParkingCount = 0; // 초기값 0으로 설정
+
+        this.isEarlybird = isEarlybird;
+        this.hasAiReport = hasAiReport;
+        this.hasScreen = hasScreen;
+    }
+
+
 }
