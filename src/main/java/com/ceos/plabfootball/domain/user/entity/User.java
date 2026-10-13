@@ -23,7 +23,7 @@ public class User {
     @Column(name = "user_id")
     private Long id;
 
-    @Column(name = "guest_uuid", nullable = false, unique = true, length = 36)
+    @Column(name = "guest_uuid", nullable = false, unique = true, updatable = false,length = 36)
     private String guestUuid;
 
     @Column(name = "name", length = 100)
@@ -48,5 +48,16 @@ public class User {
         user.expiresAt = LocalDateTime.now().plusDays(7); //7일로 임시 설정
 
         return user;
+    }
+
+    // 게스트 인증 갱신 시 만료일 연장
+    // 게스트 사용자가 7일 이내에 재방문하여 인증에 성공하면, 사용자 정보 보관 기간을 다시 7일 연장
+    public void extendExpiration() {
+        this.expiresAt = LocalDateTime.now().plusDays(7);
+    }
+
+    // 게스트 정보 만료 여부 확인
+    public boolean isExpired() {
+        return !expiresAt.isAfter(LocalDateTime.now());
     }
 }
