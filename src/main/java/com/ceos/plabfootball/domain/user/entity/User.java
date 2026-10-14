@@ -1,11 +1,11 @@
 package com.ceos.plabfootball.domain.user.entity;
 
 import com.ceos.plabfootball.domain.user.enums.UserLevel;
+import com.ceos.plabfootball.global.entity.BaseEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
@@ -16,7 +16,7 @@ import java.util.UUID;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @EntityListeners(AuditingEntityListener.class)
-public class User {
+public class User extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -32,10 +32,6 @@ public class User {
     @Enumerated(EnumType.STRING)
     @Column(name = "level", length = 100)
     private UserLevel level;
-
-    @CreatedDate
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
 
     @Column(name = "expires_at", nullable = false)
     private LocalDateTime expiresAt;
