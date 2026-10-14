@@ -4,6 +4,7 @@ package com.ceos.plabfootball.domain.auth.controller;
 import com.ceos.plabfootball.domain.auth.dto.GuestLoginResponse;
 import com.ceos.plabfootball.domain.auth.dto.TokenPair;
 import com.ceos.plabfootball.domain.auth.service.AuthService;
+import com.ceos.plabfootball.global.apiPayload.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
@@ -22,7 +23,7 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/guest")
-    public ResponseEntity<GuestLoginResponse> guestLogin() {
+    public ResponseEntity<ApiResponse<GuestLoginResponse>> guestLogin() {
 
         // 게스트 생성 및 AT/RT 발급
         TokenPair tokens = authService.guestLogin();
@@ -45,6 +46,6 @@ public class AuthController {
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
-                .body(response);
+                .body(ApiResponse.onSuccess(response));
     }
 }

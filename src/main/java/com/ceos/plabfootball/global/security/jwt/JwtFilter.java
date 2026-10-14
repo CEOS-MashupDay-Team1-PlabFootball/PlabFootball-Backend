@@ -4,6 +4,7 @@ package com.ceos.plabfootball.global.security.jwt;
 import com.ceos.plabfootball.domain.user.entity.User;
 import com.ceos.plabfootball.domain.user.repository.UserRepository;
 
+import com.ceos.plabfootball.global.apiPayload.code.status.ErrorStatus;
 import com.ceos.plabfootball.global.security.handler.AuthErrorHandler;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -49,9 +50,7 @@ public class JwtFilter extends OncePerRequestFilter {
 
             authErrorHandler.sendError(
                     response,
-                    HttpServletResponse.SC_UNAUTHORIZED,
-                    "AUTH_INVALID_TOKEN",
-                    "유효하지 않은 Access Token입니다."
+                    ErrorStatus.AUTH_INVALID_TOKEN
             );
             return;
         }
@@ -63,9 +62,7 @@ public class JwtFilter extends OncePerRequestFilter {
         } catch (RuntimeException e) {
             authErrorHandler.sendError(
                     response,
-                    HttpServletResponse.SC_UNAUTHORIZED,
-                    "AUTH_INVALID_TOKEN",
-                    "JWT 사용자 정보가 올바르지 않습니다."
+                    ErrorStatus.AUTH_INVALID_TOKEN
             );
             return;
         }
@@ -76,9 +73,7 @@ public class JwtFilter extends OncePerRequestFilter {
         if (user == null || user.isExpired()) {
             authErrorHandler.sendError(
                     response,
-                    HttpServletResponse.SC_UNAUTHORIZED,
-                    "AUTH_INVALID_GUEST",
-                    "유효하지 않은 게스트 사용자입니다."
+                    ErrorStatus.AUTH_INVALID_GUEST
             );
             return;
         }
