@@ -6,6 +6,7 @@ import com.ceos.plabfootball.domain.user.repository.UserRepository;
 
 import com.ceos.plabfootball.global.apiPayload.code.status.ErrorStatus;
 import com.ceos.plabfootball.global.security.handler.AuthErrorHandler;
+import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -60,7 +61,7 @@ public class JwtFilter extends OncePerRequestFilter {
 
         try {
             userId = jwtProvider.getUserId(token);
-        } catch (RuntimeException e) {
+        } catch (JwtException e) {
             authErrorHandler.sendError(
                     response,
                     ErrorStatus.AUTH_INVALID_TOKEN
