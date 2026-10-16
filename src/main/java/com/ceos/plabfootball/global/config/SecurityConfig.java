@@ -42,6 +42,13 @@ public class SecurityConfig {
                                 "/api/auth/refresh"
                         ).permitAll() // AT가 만료되어도 RT로 새 AT를 발급받을 수 있어야 하기 때문
 
+                        // 헬스 체크 API
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/health"
+                        ).permitAll()
+
+                        // swagger
                         .requestMatchers(
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
