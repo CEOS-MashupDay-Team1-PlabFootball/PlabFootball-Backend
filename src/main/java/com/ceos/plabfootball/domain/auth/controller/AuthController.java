@@ -8,6 +8,8 @@ import com.ceos.plabfootball.global.apiPayload.ApiResponse;
 import com.ceos.plabfootball.global.apiPayload.code.status.ErrorStatus;
 import com.ceos.plabfootball.global.apiPayload.exception.GeneralException;
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
@@ -25,6 +27,9 @@ public class AuthController {
 
     private final AuthService authService;
 
+    @Value("${app.cookie.secure:true}")
+    private boolean cookieSecure;
+
     @PostMapping("/guest")
     public ResponseEntity<ApiResponse<GuestLoginResponse>> guestLogin() {
 
@@ -35,7 +40,7 @@ public class AuthController {
         ResponseCookie refreshCookie = ResponseCookie.from(
                         "refreshToken", tokens.refreshToken())
                 .httpOnly(true)
-                .secure(false) // 로컬 HTTP 개발용
+                .secure(cookieSecure)
                 .sameSite("Lax")
                 .path("/api/auth")
                 .maxAge(Duration.ofDays(7))
@@ -73,7 +78,7 @@ public class AuthController {
         ResponseCookie refreshCookie = ResponseCookie.from(
                         "refreshToken", tokens.refreshToken())
                 .httpOnly(true)
-                .secure(false) // 로컬 개발용, 운영 HTTPS에서는 true
+                .secure(cookieSecure)
                 .sameSite("Lax")
                 .path("/api/auth")
                 .maxAge(Duration.ofDays(7))
