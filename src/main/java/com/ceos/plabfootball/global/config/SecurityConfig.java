@@ -48,6 +48,14 @@ public class SecurityConfig {
                                 "/api/health"
                         ).permitAll()
 
+                        // 매치 탐색과 구장 사진은 비인증 사용자에게도 공개한다.
+                        // 찜 등록·해제(PUT/DELETE)는 아래 인증 규칙을 유지한다.
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/matches",
+                                "/images/stadiums/**"
+                        ).permitAll()
+
                         // swagger
                         .requestMatchers(
                                 "/swagger-ui/**",
