@@ -8,28 +8,40 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.net.URI;
 import java.security.Principal;
-import lombok.RequiredArgsConstructor;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 @RestController
-@RequiredArgsConstructor
 @RequestMapping("/api/matches")
 @Tag(name = "매치 목록")
 public class MatchController {
+
     private final MatchService matchService;
-    @Value("${app.images.base-url:}")
-    private String imageBaseUrl;
+    private final String imageBaseUrl;
+
+    public MatchController(MatchService matchService, @Value("${app.images.base-url}") String imageBaseUrl) {
+        if (imageBaseUrl == null || imageBaseUrl.isBlank()) {
+            throw new IllegalArgumentException("app.images.base-url 설정이 필요합니다.");
+        }
+
+        URI uri = URI.create(imageBaseUrl);
+        boolean http = "http".equalsIgnoreCase(uri.getScheme()) || "https".equalsIgnoreCase(uri.getScheme());
+        if (!http || uri.getHost() == null || uri.getUserInfo() != null
+                || uri.getRawQuery() != null || uri.getRawFragment() != null) {
+            throw new IllegalArgumentException("app.images.base-url에는 HTTP(S) 서버 주소를 설정해야 합니다.");
+        }
+
+        this.matchService = matchService;
+        this.imageBaseUrl = imageBaseUrl.replaceAll("/+$", "");
+    }
 
     @GetMapping
     @Operation(summary = "날짜별 매치 목록 조회", description = "공개 조회. 시작 시각 및 ID 오름차순. 인증된 사용자는 내 찜 여부 포함")
     public ApiResponse<MatchListResponse> list(@Valid @ModelAttribute @ParameterObject MatchListRequest request,
                                               @Parameter(hidden = true) Principal principal) {
-        String base = imageBaseUrl.isBlank()
-                ? ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString() : imageBaseUrl;
-        return ApiResponse.onSuccess(matchService.list(request, principal, base.replaceAll("/+$", "")));
+        return ApiResponse.onSuccess(matchService.list(request, principal, imageBaseUrl));
     }
 }
