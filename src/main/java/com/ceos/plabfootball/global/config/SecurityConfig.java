@@ -63,6 +63,11 @@ public class SecurityConfig {
                                 "/api/matches",
                                 "/images/stadiums/**"
                         ).permitAll()
+                        // 필터 적용한 매치 목록 조회기 비인증 사용자에게도 가능하도록 한다.
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/matches/search"
+                        ).permitAll()
 
                         // swagger
                         .requestMatchers(
