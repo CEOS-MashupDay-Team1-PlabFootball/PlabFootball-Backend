@@ -16,6 +16,8 @@ jwt:
   refresh-token-expiration: 604800000
 
 app:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
   images:
     base-url: ${IMAGE_BASE_URL}
   cookie:
