@@ -30,7 +30,7 @@ public class MatchListRequest {
     @Size(max = 3)
     private List<@NotNull MatchType> matchType;
     private GenderType gender;
-    @Size(max = 4)
+    @Size(max = 3)
     private List<@NotNull LevelType> level;
     @Size(max = 2)
     private List<@NotNull MatchFilterStatus> status;
