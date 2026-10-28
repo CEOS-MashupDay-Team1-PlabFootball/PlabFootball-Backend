@@ -1,6 +1,7 @@
 package com.ceos.plabfootball.domain.match.dto.request;
 
 import com.ceos.plabfootball.domain.match.enums.*;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.*;
 import java.time.LocalDate;
@@ -33,7 +34,8 @@ public class MatchListRequest {
     @Size(max = 3)
     private List<@NotNull LevelType> level;
     @Size(max = 2)
-    private List<@NotNull MatchFilterStatus> status;
+    @ArraySchema(schema = @Schema(type = "string", allowableValues = {"CONFIRMING_SOON", "CLOSING_SOON"}))
+    private List<@NotNull MatchStatus> status;
     @Schema(description = "true: 실내, false: 실외, 생략: 제한 없음")
     private Boolean indoor;
     private Boolean awning;
@@ -52,4 +54,12 @@ public class MatchListRequest {
     @Builder.Default
     @Min(1) @Max(100)
     private int size = 20;
+
+    // 전체 매치 상태를 재사용하되, 검색 조건은 화면에서 제공하는 두 값으로 제한한다.
+    @AssertTrue(message = "status에는 CONFIRMING_SOON과 CLOSING_SOON만 사용할 수 있습니다.")
+    @Schema(hidden = true)
+    public boolean isStatusSupported() {
+        return status == null || status.stream().allMatch(value ->
+                value == MatchStatus.CONFIRMING_SOON || value == MatchStatus.CLOSING_SOON);
+    }
 }

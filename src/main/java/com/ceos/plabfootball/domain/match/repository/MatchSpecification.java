@@ -3,7 +3,6 @@ package com.ceos.plabfootball.domain.match.repository;
 import com.ceos.plabfootball.domain.match.dto.request.MatchListRequest;
 import com.ceos.plabfootball.domain.match.entity.Match;
 import com.ceos.plabfootball.domain.match.enums.MatchFeature;
-import com.ceos.plabfootball.domain.match.enums.MatchFilterStatus;
 import com.ceos.plabfootball.domain.match.enums.MatchStatus;
 import com.ceos.plabfootball.domain.match.service.MatchAvailability;
 import jakarta.persistence.criteria.CriteriaBuilder;
@@ -91,12 +90,12 @@ public final class MatchSpecification {
             if (request.getStatus() != null && !request.getStatus().isEmpty()) {
                 List<Predicate> states = new ArrayList<>();
 
-                if (request.getStatus().contains(MatchFilterStatus.CLOSING_SOON)) {
+                if (request.getStatus().contains(MatchStatus.CLOSING_SOON)) {
                     states.add(cb.lessThanOrEqualTo(
                             root.get("startTime"), now.plusHours(MatchAvailability.CLOSING_SOON_HOURS)));
                 }
 
-                if (request.getStatus().contains(MatchFilterStatus.CONFIRMING_SOON)) {
+                if (request.getStatus().contains(MatchStatus.CONFIRMING_SOON)) {
                     states.add(cb.between(
                             cb.diff(root.<Integer>get("minPlayers"), root.<Integer>get("currentPlayers")),
                             1,
