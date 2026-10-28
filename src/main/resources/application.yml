@@ -16,5 +16,7 @@ jwt:
   refresh-token-expiration: 604800000
 
 app:
+  images:
+    base-url: ${IMAGE_BASE_URL}
   cookie:
     secure: ${COOKIE_SECURE:true}
