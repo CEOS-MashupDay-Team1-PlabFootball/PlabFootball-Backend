@@ -1,8 +1,7 @@
--- 개별 지역 227개. 매치 검색에 쓰이는 실제 area ID를 사용한다.
--- 222개는 검색 응답에서 ID와 이름을 대조했다.
+-- 개별 지역 226개. 매치 검색에 쓰이는 실제 area ID를 사용한다.
+-- 221개는 검색 응답에서 ID와 이름을 대조했다.
 -- 아래 5개는 사용자 승인에 따라 지역 묶음을 기준으로 정한 시연용 추정값이다.
 -- 20 일산동구, 34 영종동, 63 하양읍, 82 유구읍, 112 부산 중구.
--- 62와 65는 모두 구미시로 응답되어 65에 응답의 그룹명 대구/경산을 붙여 구분한다.
 -- 기존 행의 이름과 소속은 변경하지 않는다.
 INSERT INTO areas (id, cities_id, name)
 SELECT source.id, city.id, source.name
@@ -161,7 +160,6 @@ JOIN (
     UNION ALL SELECT 62, '경상북도', '구미시'
     UNION ALL SELECT 63, '경상북도', '하양읍'
     UNION ALL SELECT 64, '경상북도', '경산시'
-    UNION ALL SELECT 65, '경상북도', '구미시(대구/경산)'
     UNION ALL SELECT 72, '경상북도', '포항시'
     UNION ALL SELECT 150, '경상북도', '칠곡군'
     UNION ALL SELECT 152, '경상북도', '영주시'
