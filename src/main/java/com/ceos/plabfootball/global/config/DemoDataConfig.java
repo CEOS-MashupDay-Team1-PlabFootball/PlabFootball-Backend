@@ -17,7 +17,12 @@ public class DemoDataConfig {
     @Bean
     public ApplicationRunner seedDemoData(DataSource dataSource, JdbcTemplate jdbcTemplate) {
         return args -> {
-            // 기존 팀 데이터가 있는 DB에는 시연 데이터를 자동 삽입하지 않는다.
+            // 지역 기준 데이터는 기존 데모 매치가 있어도 보완한다. 기존 행은 변경하지 않는다.
+            new ResourceDatabasePopulator(
+                    new ClassPathResource("db/seed/01_cities.sql"),
+                    new ClassPathResource("db/seed/02_areas.sql")).execute(dataSource);
+
+            // 기존 팀 데이터가 있는 DB에는 시연 매치를 자동 삽입하지 않는다.
             Long matches = jdbcTemplate.queryForObject("select count(*) from matches", Long.class);
             Long stadiums = jdbcTemplate.queryForObject("select count(*) from stadiums", Long.class);
             Long groups = jdbcTemplate.queryForObject("select count(*) from stadium_groups", Long.class);
@@ -27,8 +32,6 @@ public class DemoDataConfig {
                 return;
             }
             new ResourceDatabasePopulator(
-                    new ClassPathResource("db/seed/01_cities.sql"),
-                    new ClassPathResource("db/seed/02_areas.sql"),
                     new ClassPathResource("db/seed/03_demo.sql")).execute(dataSource);
             log.info("Demo seed loaded: 32 stadiums and 451 matches");
         };
