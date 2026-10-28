@@ -44,8 +44,8 @@ public class MatchListRequest {
     @Schema(description = "AI_REPORT와 SCREEN을 함께 선택하면 OR")
     private List<@NotNull MatchFeature> feature;
     @Builder.Default
-    @Schema(description = "마감·취소·이미 시작한 매치 제외")
-    private boolean hideClosed = false;
+    @Schema(description = "마감, 취소, 이미 시작한 매치 제외", defaultValue = "true")
+    private boolean hideClosed = true;
     @Builder.Default
     @Min(0) @Max(10000)
     private int page = 0;
