@@ -4,6 +4,8 @@ import com.ceos.plabfootball.domain.match.dto.request.MatchListRequest;
 import com.ceos.plabfootball.domain.match.dto.response.MatchListResponse;
 import com.ceos.plabfootball.domain.match.service.MatchService;
 import com.ceos.plabfootball.global.apiPayload.ApiResponse;
+import com.ceos.plabfootball.global.apiPayload.code.status.ErrorStatus;
+import com.ceos.plabfootball.global.apiPayload.exception.GeneralException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -43,5 +45,19 @@ public class MatchController {
     public ApiResponse<MatchListResponse> list(@Valid @ModelAttribute @ParameterObject MatchListRequest request,
                                               @Parameter(hidden = true) Principal principal) {
         return ApiResponse.onSuccess(matchService.list(request, principal, imageBaseUrl));
+    }
+
+    @PostMapping("/search")
+    @Operation(summary = "필터 조건 기반 매치 목록 조회", description = "날짜 외 추가 필터가 하나 이상 필요합니다. 실내·그늘막·주차는 true일 때만 적용합니다.미선택 조건은 제외.")
+    public ApiResponse<MatchListResponse> search(
+            @Valid @RequestBody MatchListRequest request,
+            @Parameter(hidden = true) Principal principal
+    ) {
+        if (!request.hasAdditionalFilter()) {
+            throw new GeneralException(ErrorStatus.MATCH_FILTER_REQUIRED);
+        }
+        return ApiResponse.onSuccess(
+                matchService.list(request, principal, imageBaseUrl)
+        );
     }
 }

@@ -55,10 +55,10 @@ public final class MatchSpecification {
                 predicates.add(cb.equal(root.get("genderType"), request.getGender()));
             }
 
-            // 시설은 선택한 조건을 모두 만족해야 하며, null인 조건은 필터에 넣지 않는다.
-            bool(predicates, cb, stadium.get("isIndoor"), request.getIndoor());
-            bool(predicates, cb, stadium.get("hasAwning"), request.getAwning());
-            bool(predicates, cb, stadium.get("hasParking"), request.getParking());
+            // 실내, 그늘막, 주차는 true로 선택한 조건만 적용한다.
+            enabled(predicates, cb, stadium.get("isIndoor"), request.getIndoor());
+            enabled(predicates, cb, stadium.get("hasAwning"), request.getAwning());
+            enabled(predicates, cb, stadium.get("hasParking"), request.getParking());
             bool(predicates, cb, stadium.get("hasShoeRental"), request.getShoeRental());
             bool(predicates, cb, root.get("isEarlybird"), request.getEarlybird());
 
@@ -119,6 +119,12 @@ public final class MatchSpecification {
     private static void bool(List<Predicate> predicates, CriteriaBuilder cb, Path<Boolean> path, Boolean value) {
         if (value != null) {
             predicates.add(cb.equal(path, value));
+        }
+    }
+
+    private static void enabled(List<Predicate> predicates, CriteriaBuilder cb, Path<Boolean> path, Boolean value) {
+        if (Boolean.TRUE.equals(value)) {
+            predicates.add(cb.isTrue(path));
         }
     }
 }
