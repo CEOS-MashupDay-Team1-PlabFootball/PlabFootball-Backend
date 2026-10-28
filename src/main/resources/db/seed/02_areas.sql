@@ -236,4 +236,9 @@ JOIN (
     UNION ALL SELECT 230, '전북특별자치도', '순창군'
     UNION ALL SELECT 231, '전북특별자치도', '임실군'
 ) source ON source.city_name = city.name
-ON DUPLICATE KEY UPDATE id = areas.id;
+-- 사용자 데이터의 기존 ID·이름·상위 도시를 덮어쓰지 않는다.
+-- 다르게 등록되어 있다면 NOT NULL 제약 위반으로 실패하게 한다 (strict SQL 모드).
+ON DUPLICATE KEY UPDATE name = IF(
+    areas.id = VALUES(id) AND areas.cities_id = VALUES(cities_id)
+        AND areas.name = VALUES(name), areas.name, NULL
+);

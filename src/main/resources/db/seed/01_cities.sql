@@ -17,4 +17,8 @@ VALUES
     (14, '경상남도'),
     (15, '전라남도'),
     (16, '전북특별자치도')
-ON DUPLICATE KEY UPDATE id = cities.id;
+-- 중복된 ID나 이름이 정확히 같으면 그대로 두고, 다르면 NOT NULL 제약 오류로 실행을 중단한다.
+-- 실행자는 strict SQL 모드와 트랜잭션을 사용해야 한다.
+ON DUPLICATE KEY UPDATE name = IF(
+    cities.id = VALUES(id) AND cities.name = VALUES(name), cities.name, NULL
+);
