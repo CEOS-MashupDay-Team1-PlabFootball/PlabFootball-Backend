@@ -42,7 +42,7 @@ public class MatchPresetService {
         User user = currentUserService.require(principal);
         UserFilter preset = UserFilter.builder()
                 .user_id(user)
-                .title(request.title().strip())
+                .title(request.title())
                 .filterSetting(objectMapper.writeValueAsString(request.filters()))
                 .isDefault(false)
                 .build();
@@ -85,11 +85,12 @@ public class MatchPresetService {
         }
         String title = request.hasTitle() ? request.getTitle() : preset.getTitle();
         // 병합된 최종 값에도 생성 요청과 동일한 이름 및 필터 검증을 적용한다.
-        var violations = validator.validate(new MatchPresetSaveRequest(title, filters));
+        MatchPresetSaveRequest mergedRequest = new MatchPresetSaveRequest(title, filters);
+        var violations = validator.validate(mergedRequest);
         if (!violations.isEmpty()) {
             throw new ConstraintViolationException(violations);
         }
-        preset.update(title.strip(), objectMapper.writeValueAsString(filters));
+        preset.update(mergedRequest.title(), objectMapper.writeValueAsString(filters));
         userFilterRepository.flush();
         return toResponse(preset);
     }

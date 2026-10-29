@@ -7,7 +7,12 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 public record MatchPresetSaveRequest(
-        @NotBlank @Size(max = 10) @Schema(example = "퇴근 후 풋살") String title,
+        @NotBlank @Size(max = 10)
+        @Schema(description = "생략, null, 빈 문자열 또는 공백이면 기본 이름 적용", defaultValue = "내 필터", example = "퇴근 후 풋살")
+        String title,
         @NotNull @Valid MatchPresetFilters filters
 ) {
+    public MatchPresetSaveRequest {
+        title = title == null || title.isBlank() ? "내 필터" : title.strip();
+    }
 }

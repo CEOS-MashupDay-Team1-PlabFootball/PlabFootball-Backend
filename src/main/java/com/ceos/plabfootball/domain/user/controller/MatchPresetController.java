@@ -33,7 +33,7 @@ public class MatchPresetController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    @Operation(summary = "매치 프리셋 임시 저장", description = "이름을 붙여 새 프리셋을 저장합니다. 작성 중인 빈 필터도 저장할 수 있습니다.")
+    @Operation(summary = "매치 프리셋 임시 저장", description = "이름을 작성하지 않으면 '내 필터'로 저장합니다. 작성 중인 빈 필터도 저장할 수 있습니다.")
     public ApiResponse<MatchPresetResponse> create(
             @Valid @RequestBody MatchPresetSaveRequest request,
             @Parameter(hidden = true) Principal principal
