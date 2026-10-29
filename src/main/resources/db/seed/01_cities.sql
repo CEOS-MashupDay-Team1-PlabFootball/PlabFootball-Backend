@@ -1,7 +1,24 @@
--- 01_cities.sql
--- 시/도 초기 시드 데이터
-
-INSERT INTO cities (name)
-VALUES ('서울특별시')
-ON DUPLICATE KEY UPDATE
-    name = VALUES(name);
+-- 조사한 광역 그룹 ID를 유지한다. 기존 행은 변경하지 않는다.
+INSERT INTO cities (id, name)
+VALUES
+    (1, '서울특별시'),
+    (2, '경기도'),
+    (3, '인천광역시'),
+    (4, '대전/세종'),
+    (5, '대구광역시'),
+    (6, '부산광역시'),
+    (7, '광주광역시'),
+    (8, '제주특별자치도'),
+    (9, '강원특별자치도'),
+    (10, '충청남도'),
+    (11, '충청북도'),
+    (12, '경상북도'),
+    (13, '울산광역시'),
+    (14, '경상남도'),
+    (15, '전라남도'),
+    (16, '전북특별자치도')
+-- 중복된 ID나 이름이 정확히 같으면 그대로 두고, 다르면 NOT NULL 제약 오류로 실행을 중단한다.
+-- 실행자는 strict SQL 모드와 트랜잭션을 사용해야 한다.
+ON DUPLICATE KEY UPDATE name = IF(
+    cities.id = VALUES(id) AND cities.name = VALUES(name), cities.name, NULL
+);

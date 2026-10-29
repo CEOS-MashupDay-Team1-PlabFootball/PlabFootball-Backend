@@ -69,6 +69,13 @@ public class SecurityConfig {
                                 "/api/matches/search"
                         ).permitAll()
 
+                        // 지역 탐색은 공개하고 내 지역 조회와 등록 및 해제는 인증을 요구한다.
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/cities",
+                                "/api/cities/*/areas"
+                        ).permitAll()
+
                         // swagger
                         .requestMatchers(
                                 "/swagger-ui/**",
