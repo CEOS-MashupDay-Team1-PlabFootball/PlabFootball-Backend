@@ -64,35 +64,72 @@ public class MatchPresetService {
 
     // 기존 프리셋의 이름이나 필터 조건을 부분 수정
     // 요청에 포함되지 않은 기존 값은 그대로 유지한다.
+    // 사용자 확인 -> 수정값 준비 -> 검증 -> 저장
     @Transactional
     public MatchPresetResponse update(Long presetId, MatchPresetUpdateRequest request, Principal principal) {
         Long userId = currentUserService.require(principal).getId();
         UserFilter preset = findOwned(presetId, userId);
-        MatchPresetFilters filters = objectMapper.readValue(preset.getFilterSetting(), MatchPresetFilters.class);
-        if (request.hasFilters()) {
-            ObjectNode merged = objectMapper.valueToTree(filters);
-            for (var entry : request.getFilters().properties()) {
-                if (!FILTER_FIELDS.contains(entry.getKey())) {
-                    throw new GeneralException(ErrorStatus._BAD_REQUEST);
-                }
-                merged.set(entry.getKey(), entry.getValue());
-            }
-            try {
-                filters = objectMapper.treeToValue(merged, MatchPresetFilters.class);
-            } catch (JacksonException exception) {
+
+        MatchPresetFilters currentFilters = objectMapper.readValue(
+                preset.getFilterSetting(),
+                MatchPresetFilters.class
+        );
+
+        MatchPresetFilters updatedFilters = request.hasFilters()
+                ? mergeFilters(currentFilters, request.getFilters())
+                : currentFilters;
+
+        String title = request.hasTitle()
+                ? request.getTitle()
+                : preset.getTitle();
+
+        MatchPresetSaveRequest updatedRequest =
+                new MatchPresetSaveRequest(title, updatedFilters);
+
+        validatePreset(updatedRequest);
+
+        preset.update(
+                updatedRequest.title(),
+                objectMapper.writeValueAsString(updatedRequest.filters())
+        );
+
+        userFilterRepository.flush();
+        return toResponse(preset);
+    }
+
+    // 기존 필터와 전달된 필터를 병합
+    // 전달하지 않은 조건은 유지
+    private MatchPresetFilters mergeFilters(
+            MatchPresetFilters currentFilters,
+            ObjectNode changes
+    ) {
+        ObjectNode merged = objectMapper.valueToTree(currentFilters);
+
+        for (var entry : changes.properties()) {
+            if (!FILTER_FIELDS.contains(entry.getKey())) {
                 throw new GeneralException(ErrorStatus._BAD_REQUEST);
             }
+
+            merged.set(entry.getKey(), entry.getValue());
         }
-        String title = request.hasTitle() ? request.getTitle() : preset.getTitle();
-        // 병합된 최종 값에도 생성 요청과 동일한 이름 및 필터 검증을 적용한다.
-        MatchPresetSaveRequest mergedRequest = new MatchPresetSaveRequest(title, filters);
-        var violations = validator.validate(mergedRequest);
+
+        try {
+            return objectMapper.treeToValue(
+                    merged,
+                    MatchPresetFilters.class
+            );
+        } catch (JacksonException exception) {
+            throw new GeneralException(ErrorStatus._BAD_REQUEST);
+        }
+    }
+
+    // 병합한 최종 값 검증
+    private void validatePreset(MatchPresetSaveRequest request) {
+        var violations = validator.validate(request);
+
         if (!violations.isEmpty()) {
             throw new ConstraintViolationException(violations);
         }
-        preset.update(mergedRequest.title(), objectMapper.writeValueAsString(filters));
-        userFilterRepository.flush();
-        return toResponse(preset);
     }
 
     // 필터 프리셋 수정

@@ -25,7 +25,7 @@ public record MatchPresetFilters(
         @Size(max = 3) List<@NotNull MatchType> matchType,
         GenderType gender,
         @Size(max = 3) List<@NotNull LevelType> level,
-        @Size(max = 3) List<@NotNull MatchStatus> status,
+        @Size(max = 2) List<@NotNull MatchStatus> status,
         @Schema(description = "true일 때만 실내 필터 적용") Boolean indoor,
         @Schema(description = "true일 때만 그늘막 필터 적용") Boolean awning,
         @Schema(description = "true일 때만 주차 필터 적용") Boolean parking,
@@ -46,7 +46,7 @@ public record MatchPresetFilters(
                 .matchType(matchType).gender(gender).level(level).status(status)
                 .indoor(indoor).awning(awning).parking(parking)
                 .shoeRental(shoeRental).earlybird(earlybird).feature(feature)
-                .hideClosed(hideClosed == null || hideClosed)
+                .hideClosed(hideClosed)
                 .build();
     }
 
