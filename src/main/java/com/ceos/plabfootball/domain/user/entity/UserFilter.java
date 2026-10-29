@@ -44,4 +44,9 @@ public class UserFilter extends BaseEntity {
         this.filterSetting = filterSetting;
         this.isDefault = isDefault;
     }
+
+    public void update(String title, String filterSetting) {
+        this.title = title;
+        this.filterSetting = filterSetting;
+    }
 }

@@ -18,6 +18,7 @@ public enum ErrorStatus implements BaseErrorCode {
 	_INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "COMMON500", "서버 에러, 관리자에게 문의 바랍니다."),
 
 	MATCH_FILTER_REQUIRED(HttpStatus.BAD_REQUEST, "MATCH4001", "날짜 외 검색 필터를 하나 이상 선택해 주세요."),
+	MATCH_PRESET_NOT_FOUND(HttpStatus.NOT_FOUND, "MATCH4041", "매치 프리셋을 찾을 수 없습니다."),
 
 	// 인증 관련 오류
 	AUTH_UNAUTHORIZED(HttpStatus.UNAUTHORIZED,"AUTH_UNAUTHORIZED", "인증이 필요한 요청입니다."),
