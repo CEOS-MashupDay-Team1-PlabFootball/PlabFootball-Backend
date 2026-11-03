@@ -42,6 +42,10 @@ public class ReferenceDataInitializer implements ApplicationRunner {
                 throw new IllegalStateException("cities.name과 areas.name은 NOT NULL 컬럼이어야 합니다.");
             }
 
+            // 기존 경기 지역 ID는 유지하고 이름만 시드와 일치시킨다.
+            jdbcTemplate.update("UPDATE cities SET name = ? WHERE id = ? AND name = ?",
+                    "경기", 2L, "경기도");
+
             // 두 SQL 파일을 한 트랜잭션에서 실행한다. 충돌이 나면 새로 삽입한 데이터도 롤백한다.
             new ResourceDatabasePopulator(
                     new ClassPathResource("db/seed/01_cities.sql"),
